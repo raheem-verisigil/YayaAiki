@@ -4,7 +4,7 @@ YayaAiki — African verified work infrastructure connecting businesses with qua
 
 
 
-\## Professional onboarding
+## Professional onboarding
 
 
 
