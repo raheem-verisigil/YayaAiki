@@ -9,7 +9,6 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   Fingerprint,
-  Github,
   Globe2,
   Menu,
   MessageCircle,
@@ -27,8 +26,7 @@ const whatsapp = "https://wa.me/2348112051880?text=Hello%20YayaAiki%2C%20I%27d%2
 function Logo() {
   return (
     <Link href="/" className="brand-lockup" aria-label="YayaAiki home">
-      <span className="brand-mark">Y</span>
-      <span className="brand-word">Yaya<span>Aiki</span></span>
+      <img className="brand-full-logo" src="/manus-storage/yayaaiki-logo_873472fe.png" alt="YayaAiki — Work, Verified, Valued" />
     </Link>
   );
 }
@@ -79,7 +77,6 @@ export default function Home() {
           <a href="#contact" onClick={() => setMobileOpen(false)}>Contact</a>
         </div>
         <div className="nav-actions">
-          <a className="nav-github" href="https://github.com" target="_blank" rel="noreferrer" title="Connect GitHub"><Github size={16} /> <span>GitHub</span></a>
           <a className="button button-dark button-small" href={whatsapp}>Start a work order <ArrowUpRight size={15} /></a>
           <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation">{mobileOpen ? <X size={22} /> : <Menu size={22} />}</button>
         </div>
