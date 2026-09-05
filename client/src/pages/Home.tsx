@@ -15,6 +15,7 @@ import {
   Network,
   ShieldCheck,
   Sparkles,
+  TrendingUp,
   WalletCards,
   X,
 } from "lucide-react";
@@ -65,7 +66,7 @@ export default function Home() {
     <main className="site-shell">
       <div className="announcement">
         <span className="announcement-dot" />
-        YayaAiki is building a better way to get African work done <span className="announcement-separator">/</span> <a href={whatsapp}>Talk to us on WhatsApp <ArrowUpRight size={14} /></a>
+        YayaAiki is building infrastructure for trusted work across Africa <span className="announcement-separator">/</span> <a href={whatsapp}>Talk to us on WhatsApp <ArrowUpRight size={14} /></a>
       </div>
 
       <nav className="site-nav container">
@@ -87,6 +88,7 @@ export default function Home() {
           <div className="kicker"><span className="kicker-line" /> VERIFIED WORK INFRASTRUCTURE</div>
           <h1>Good work should be <em>provable.</em></h1>
           <p className="hero-lede">YayaAiki connects the brief, the person, the proof, and the payment — so every completed job can move with more trust.</p>
+          <p className="hero-proposition">Turn African capability into verified economic value.</p>
           <div className="hero-actions">
             <a className="button button-accent" href={whatsapp}>Start a verified work order <ArrowUpRight size={17} /></a>
             <a className="text-link" href="#how-it-works">See how it works <ChevronRight size={16} /></a>
@@ -95,16 +97,16 @@ export default function Home() {
         </div>
 
         <div className="proof-board reveal-up delay-1" aria-label="Live proof thread preview">
-          <div className="board-topline"><span className="status-live"><span /> LIVE PROOF THREAD</span><span className="mono">WO-2048 · Lagos</span></div>
+          <div className="board-topline"><span className="status-live"><span /> EXAMPLE WORK TRACE</span><span className="mono">ILLUSTRATIVE · LAGOS</span></div>
           <div className="board-title-row"><div><span className="tiny-label">WORK ORDER</span><h3>Retail inventory audit</h3></div><span className="tag tag-gold">₦ 180,000 reserved</span></div>
           <div className="thread">
             <div className="thread-item done"><div className="thread-icon"><Check size={14} /></div><div><strong>Work order created</strong><span>Brief approved by Kora Retail</span></div><time>09:14</time></div>
             <div className="thread-item done"><div className="thread-icon"><Fingerprint size={14} /></div><div><strong>Actor assigned</strong><span>Amaka Okafor · field professional</span></div><time>09:28</time></div>
             <div className="thread-item done"><div className="thread-icon"><ClipboardCheck size={14} /></div><div><strong>Evidence submitted</strong><span>18 files · sha256 verified</span></div><time>13:42</time></div>
-            <div className="thread-item current"><div className="thread-icon"><ShieldCheck size={14} /></div><div><strong>Independent verification</strong><span>Verifier review in progress</span></div><time>NOW</time></div>
+            <div className="thread-item current"><div className="thread-icon"><ShieldCheck size={14} /></div><div><strong>Verification review</strong><span>Review in progress</span></div><time>NOW</time></div>
             <div className="thread-item pending"><div className="thread-icon"><WalletCards size={14} /></div><div><strong>Payment authorization</strong><span>Released after pass</span></div><time>—</time></div>
           </div>
-          <div className="board-footer"><span><span className="pulse-dot" /> Append-only event history</span><span>View trace <ArrowUpRight size={13} /></span></div>
+          <div className="board-footer"><span><span className="pulse-dot" /> Illustrative example · append-only history</span><span>View trace <ArrowUpRight size={13} /></span></div>
         </div>
       </section>
 
@@ -149,6 +151,25 @@ export default function Home() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="section agency-section">
+        <div className="container">
+          <div className="section-intro split-intro"><div><div className="kicker"><span className="kicker-line" /> AFRICAN ECONOMIC AGENCY</div><h2>Built for African capability.<br /><span>Not extracted from it.</span></h2></div><p>YayaAiki is designed around African professionals, businesses, languages, data, and participation in the future economy.</p></div>
+          <div className="agency-grid">
+            <div className="agency-card agency-card-blue"><div className="agency-card-icon"><Globe2 size={22} /></div><span className="agency-label">ACCESS</span><h3>More than one doorway.</h3><p>Web today. WhatsApp beside it. Voice, assisted access, and more languages as the network expands.</p><span className="agency-status">Web + WhatsApp now</span></div>
+            <div className="agency-card agency-card-green"><div className="agency-card-icon"><TrendingUp size={22} /></div><span className="agency-label">OPPORTUNITY</span><h3>Good work should lead somewhere.</h3><p>Verified outcomes create a portable record of capability, reliability, and specialization.</p><span className="agency-status">Work → trust → better opportunity</span></div>
+            <div className="agency-card agency-card-gold"><div className="agency-card-icon"><ShieldCheck size={22} /></div><span className="agency-label">SOVEREIGNTY</span><h3>Your work. Your permissions.</h3><p>Data classification, contextual access, provenance, and AI-processing controls belong in the foundation.</p><span className="agency-status">Governed by design</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section access-section">
+        <div className="container access-layout"><div className="access-copy"><div className="kicker"><span className="kicker-line" /> UNIVERSAL ACCESS</div><h2>One economic engine.<br /><span>Many ways to participate.</span></h2><p>Participation should not depend on owning the latest device, speaking a particular language, or navigating a complicated platform.</p><div className="access-principle"><ShieldCheck size={18} /><span>Different access methods. One economic identity. One work history. One verification standard.</span></div></div><div className="access-channels"><div className="access-channel active"><div className="access-channel-icon"><Globe2 size={19} /></div><div><strong>Web</strong><span>For professionals and businesses ready to work in a full workspace.</span></div><b>Now</b></div><div className="access-channel active"><div className="access-channel-icon"><MessageCircle size={19} /></div><div><strong>WhatsApp</strong><span>For onboarding, notifications, simple actions, and human support.</span></div><b>Now</b></div><div className="access-channel"><div className="access-channel-icon"><Sparkles size={19} /></div><div><strong>Voice</strong><span>Listen, understand, and act with assisted voice guidance.</span></div><b>Next</b></div><div className="access-channel"><div className="access-channel-icon"><Network size={19} /></div><div><strong>USSD + assisted access</strong><span>Lower the barrier without lowering the standard of work.</span></div><b>Roadmap</b></div></div></div>
+      </section>
+
+      <section className="section mobility-section">
+        <div className="container mobility-layout"><div><div className="kicker"><span className="kicker-line" /> ECONOMIC MOBILITY</div><h2>Your work history<br /><span>should work for you.</span></h2><p>Every verified outcome can strengthen a professional’s path toward higher-value work, deeper specialization, and greater economic agency.</p><Link className="text-link" href="/for-professionals">See the professional journey <ArrowUpRight size={15} /></Link></div><div className="mobility-track"><div><span>01</span><strong>Verified work</strong></div><div><span>02</span><strong>Economic reputation</strong></div><div><span>03</span><strong>Higher-value opportunity</strong></div><div><span>04</span><strong>Greater agency</strong></div></div></div>
       </section>
 
       <section id="trust" className="section container trust-section">
