@@ -48,7 +48,7 @@ const events = [
   { time: "08:57:02", type: "WORK_ORDER_CREATED", actor: "Kora Retail", order: "WO-2048", detail: "Policy v1.3 · acceptance set", tone: "purple" },
 ];
 
-function Brand() { return <Link href="/" className="brand-lockup workspace-brand"><img className="brand-full-logo" src="/manus-storage/yayaaiki-logo_873472fe.png" alt="YayaAiki — Work, Verified, Valued" /></Link>; }
+function Brand() { return <Link href="/" className="brand-lockup workspace-brand"><img className="brand-full-logo" src="/yayaaiki-logo.png" alt="YayaAiki — Work, Verified, Valued" /></Link>; }
 function StatusPill({ children, tone = "blue" }: { children: React.ReactNode; tone?: string }) { return <span className={`status-pill ${tone}`}><span className="status-dot" />{children}</span>; }
 function Sidebar({ mode, open, onClose }: { mode: WorkspaceMode; open: boolean; onClose: () => void }) {
   const names = { business: "Kora Retail", professional: "Amaka Okafor", ops: "Operations desk" };

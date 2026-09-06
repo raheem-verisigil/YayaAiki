@@ -20,10 +20,10 @@
   --ring: #e96f4e;
   --radius: 0.45rem;
   --ink: #071A2B;
-  --paper: #f7f5f0;
+  --paper: #F7F5EF;
   --coral: #1268D5;
   --olive: #18A957;
-  --blue: #8ad1a7;
+  --blue: #1268D5;
   --gold: #F2B632;
   --line: #ddd9cf;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -54,7 +54,7 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; background: var(--paper); color: var(--ink); font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body { margin: 0; min-width: 320px; background: var(--paper); color: var(--ink); font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 a { color: inherit; text-decoration: none; }
 button, input { font: inherit; }
 button { cursor: pointer; }
@@ -431,3 +431,30 @@ button { cursor: pointer; }
 @media (max-width: 520px) {
   .site-footer .brand-full-logo { width: 150px; height: 78px; }
 }
+
+
+/* Approved type system: Space Grotesk for structure, IBM Plex Sans for readable body copy. */
+.brand-mark, .brand-word, .hero h1, .section-intro h2, .split-intro h2, .section-card-head h3,
+.flow-step h3, .role-feature h3, .trust-card h2, .cta-section h2, .workspace-header h1,
+.workspace-section-head h2, .professional-welcome h2, .ops-banner h2, .agency-card h3,
+.access-copy h2, .mobility-layout h2, .detail-drawer h2 { font-family: "Space Grotesk", sans-serif; }
+.hero-lede, .hero-proposition, .section-intro > p, .split-intro > p, .flow-step p,
+.role-feature p, .agency-card p, .access-copy > p, .mobility-layout p, .cta-side p,
+.site-footer p, .footer-column a, .workspace-content, .workspace-header { font-family: "IBM Plex Sans", sans-serif; }
+
+
+/* One orchestrated motion moment: the work trace reveals in sequence. */
+.reveal-up { animation: none; }
+.proof-board .thread-item { opacity: 0; transform: translateX(-8px); }
+@media (prefers-reduced-motion: no-preference) {
+  .proof-board .thread-item { animation: trace-node-in 360ms var(--ease-out) forwards; }
+  .proof-board .thread-item:nth-child(1) { animation-delay: 180ms; }
+  .proof-board .thread-item:nth-child(2) { animation-delay: 300ms; }
+  .proof-board .thread-item:nth-child(3) { animation-delay: 420ms; }
+  .proof-board .thread-item:nth-child(4) { animation-delay: 540ms; }
+  .proof-board .thread-item:nth-child(5) { animation-delay: 660ms; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proof-board .thread-item { opacity: 1; transform: none; }
+}
+@keyframes trace-node-in { to { opacity: 1; transform: translateX(0); } }
