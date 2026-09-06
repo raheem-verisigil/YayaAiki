@@ -42,21 +42,21 @@ export default function Home() {
       title: "Brief work. See the proof. Release with confidence.",
       body: "Turn a business need into a scoped work order, a verified delivery, and a payment trail your finance team can stand behind.",
       href: "/for-business",
-      cta: "Open business portal",
+      cta: "Submit work",
     },
     professional: {
       eyebrow: "For professionals doing the work",
       title: "Your work deserves a clear path to trust.",
       body: "See the brief, submit evidence, respond to rework, and build a reputation from outcomes — not noise.",
       href: "/for-professionals",
-      cta: "Open professional portal",
+      cta: "Join as a professional",
     },
     ops: {
       eyebrow: "For the people keeping promises",
       title: "One operational view from brief to paid.",
       body: "Give your team the control plane for verification, exceptions, payment authorization, and an audit-ready event history.",
       href: "/ops",
-      cta: "Open operations view",
+      cta: "Open operations console",
     },
   };
 
@@ -72,13 +72,13 @@ export default function Home() {
       <nav className="site-nav container">
         <Logo />
         <div className={`nav-links ${mobileOpen ? "is-open" : ""}`}>
-          <a href="#how-it-works" onClick={() => setMobileOpen(false)}>How it works</a>
-          <a href="#for-who" onClick={() => setMobileOpen(false)}>For who</a>
-          <a href="#trust" onClick={() => setMobileOpen(false)}>Trust layer</a>
-          <a href="#contact" onClick={() => setMobileOpen(false)}>Contact</a>
+          <a href="#how-it-works" onClick={() => setMobileOpen(false)}>Platform</a>
+          <a href="#for-who" onClick={() => setMobileOpen(false)}>For businesses</a>
+          <a href="#for-who" onClick={() => setMobileOpen(false)}>For professionals</a>
+          <a href="#trust" onClick={() => setMobileOpen(false)}>Trust</a>
         </div>
         <div className="nav-actions">
-          <a className="button button-dark button-small" href={whatsapp}>Start a work order <ArrowUpRight size={15} /></a>
+          <a className="button button-dark button-small" href={whatsapp}>Submit work <ArrowUpRight size={15} /></a>
           <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation">{mobileOpen ? <X size={22} /> : <Menu size={22} />}</button>
         </div>
       </nav>
@@ -88,9 +88,10 @@ export default function Home() {
           <div className="kicker"><span className="kicker-line" /> VERIFIED WORK INFRASTRUCTURE</div>
           <h1>Good work should be <em>provable.</em></h1>
           <p className="hero-lede">YayaAiki connects the brief, the person, the proof, and the payment — so every completed job can move with more trust.</p>
-          <p className="hero-proposition">Turn African capability into verified economic value.</p>
+          <p className="hero-proposition">Business demand → African capability → verified economic value.</p>
           <div className="hero-actions">
-            <a className="button button-accent" href={whatsapp}>Start a verified work order <ArrowUpRight size={17} /></a>
+            <a className="button button-accent" href={whatsapp}>Submit work <ArrowUpRight size={17} /></a>
+            <Link className="button button-outline hero-secondary-action" href="/for-professionals">Join as a professional <ArrowUpRight size={16} /></Link>
             <a className="text-link" href="#how-it-works">See how it works <ChevronRight size={16} /></a>
           </div>
           <div className="hero-note"><ShieldCheck size={15} /> Built for accountable work across Africa</div>
@@ -135,7 +136,7 @@ export default function Home() {
 
       <section id="for-who" className="section role-section">
         <div className="container">
-          <div className="section-intro split-intro"><div><div className="kicker"><span className="kicker-line" /> ONE ENGINE, THREE DOORS</div><h2>Start where<br /><span>you stand.</span></h2></div><p>WhatsApp sits beside the engine for notifications, support, and simple actions. The system of record stays clear, structured, and ready for scale.</p></div>
+          <div className="section-intro split-intro"><div><div className="kicker"><span className="kicker-line" /> ONE WORK ENGINE, DIFFERENT ROLES</div><h2>Start where<br /><span>you stand.</span></h2></div><p>Businesses bring the demand. Professionals bring the capability. Operations keeps the promise. WhatsApp sits beside the engine for notifications, support, and simple actions.</p></div>
           <div className="role-layout">
             <div className="role-tabs" role="tablist" aria-label="YayaAiki audiences">
               {(Object.keys(roleCopy) as Array<keyof typeof roleCopy>).map((role) => <button key={role} className={`role-tab ${activeRole === role ? "active" : ""}`} onClick={() => setActiveRole(role)}><span>{role === "business" ? "I buy work" : role === "professional" ? "I do work" : "I run ops"}</span><ChevronRight size={17} /></button>)}
