@@ -410,3 +410,15 @@ button { cursor: pointer; }
   .hero-actions .button { width: 100%; }
   .hero-actions .text-link { margin-top: 2px; }
 }
+
+
+/* Supplied logo lockup: give the brand enough presence to read at a glance. */
+.site-nav { min-height: 98px; }
+.brand-full-logo { width: 184px; height: 92px; transform: scale(1.04); transform-origin: left center; }
+@media (max-width: 800px) {
+  .site-nav { min-height: 78px; }
+  .brand-full-logo { width: 150px; height: 76px; transform: scale(1.02); }
+}
+@media (max-width: 520px) {
+  .brand-full-logo { width: 140px; height: 72px; }
+}
