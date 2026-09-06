@@ -4,5 +4,5 @@ YayaAiki — African verified work infrastructure connecting businesses with qua
 
 ## Professional onboarding
 
-Professionals can join YayaAiki, describe their capabilities, receive structured work, submit evidence, and build a verified work history.
+professionals can join YayaAiki, describe their capabilities, receive structured work, submit evidence, and build a verified work history.
 
