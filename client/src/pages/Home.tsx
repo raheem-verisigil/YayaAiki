@@ -27,7 +27,7 @@ const whatsapp = "https://wa.me/2348112051880?text=Hello%20YayaAiki%2C%20I%27d%2
 function Logo() {
   return (
     <Link href="/" className="brand-lockup" aria-label="YayaAiki home">
-      <img className="brand-full-logo" src="/manus-storage/yayaaiki-logo_873472fe.png" alt="YayaAiki — Work, Verified, Valued" />
+      <img className="brand-full-logo" src="/yayaaiki-logo.png" alt="YayaAiki — Work, Verified, Valued" />
     </Link>
   );
 }
