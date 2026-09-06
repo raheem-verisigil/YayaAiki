@@ -422,3 +422,12 @@ button { cursor: pointer; }
 @media (max-width: 520px) {
   .brand-full-logo { width: 140px; height: 72px; }
 }
+
+
+/* Consistent logo lockups beyond the public header. */
+.site-footer .brand-full-logo { width: 172px; height: 88px; filter: drop-shadow(0 7px 12px rgba(0,0,0,0.18)); }
+.workspace-sidebar .brand-full-logo { width: 132px; height: 82px; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.2)); }
+.workspace-sidebar .sidebar-head { min-height: 82px; }
+@media (max-width: 520px) {
+  .site-footer .brand-full-logo { width: 150px; height: 78px; }
+}
