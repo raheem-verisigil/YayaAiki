@@ -9,8 +9,10 @@ Create or use a Supabase project. In Supabase, enable the Google provider under 
 ```text
 https://yayaaiki.com/
 https://yayaaiki-production.up.railway.app/
-http://localhost:3000/
+https://localhost:3000/
 ```
+
+For Google, create OAuth credentials in Google Cloud Console and set the authorized redirect URI to the Supabase callback shown on the Supabase Google provider page, usually `https://<project-ref>.supabase.co/auth/v1/callback`. Put the Google Client ID and Client Secret into Supabase, not Railway. In Authentication → Providers → Email, enable email/password sign-up and choose whether new users must confirm their email.
 
 Copy the project URL and anon public key from Supabase Project Settings → API.
 
@@ -45,6 +47,8 @@ railway up
 railway logs
 ```
 
+The migration command must finish without `DATABASE_URL is required`, driver, or connection errors. Run it a second time to confirm it is idempotent. The expected application table is `users`; inspect it from Railway's Postgres service or with a PostgreSQL client. `DATABASE_URL` must reference Railway Postgres, not the Supabase project database.
+
 ## Verify
 
 Open:
@@ -55,4 +59,4 @@ https://yayaaiki.com/for-business
 https://yayaaiki.com/start-work
 ```
 
-A protected workspace should prompt for Supabase Google login. After login, the server mirrors the Supabase user into the PostgreSQL `users` table.
+A protected workspace should offer Google and email/password login. After login, the server mirrors the Supabase user into the PostgreSQL `users` table.
