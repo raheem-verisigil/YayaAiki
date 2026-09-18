@@ -78,7 +78,7 @@ export default function Home() {
           <a href="#trust" onClick={() => setMobileOpen(false)}>Trust</a>
         </div>
         <div className="nav-actions">
-          <a className="button button-dark button-small" href={whatsapp}>Submit work <ArrowUpRight size={15} /></a>
+          <Link className="button button-dark button-small" href="/start-work">Start a Work Order <ArrowUpRight size={15} /></Link>
           <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation">{mobileOpen ? <X size={22} /> : <Menu size={22} />}</button>
         </div>
       </nav>
@@ -90,7 +90,7 @@ export default function Home() {
           <p className="hero-lede">YayaAiki connects the brief, the person, the proof, and the payment — so every completed job can move with more trust.</p>
           <p className="hero-proposition">Business demand → African capability → verified economic value.</p>
           <div className="hero-actions">
-            <a className="button button-accent" href={whatsapp}>Submit work <ArrowUpRight size={17} /></a>
+            <Link className="button button-accent" href="/start-work">Start a Work Order <ArrowUpRight size={17} /></Link>
             <Link className="button button-outline hero-secondary-action" href="/for-professionals">Join as a professional <ArrowUpRight size={16} /></Link>
             <a className="text-link" href="#how-it-works">See how it works <ChevronRight size={16} /></a>
           </div>

@@ -4,13 +4,18 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/ReferenceHome";
+import Home from "./pages/Home";
+import IntakeStatus from "./pages/IntakeStatus";
+import StartWork from "./pages/StartWork";
 import Workspace from "./pages/Workspace";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/start-work" component={StartWork} />
+      <Route path="/start" component={StartWork} />
+      <Route path="/intake/:publicId" component={IntakeStatus} />
       <Route path="/for-business">
         <Workspace mode="business" />
       </Route>

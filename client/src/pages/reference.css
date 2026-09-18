@@ -141,7 +141,7 @@
   .primitive h4{color:var(--off); font-size:1.1rem; margin-bottom:10px;}
   .primitive p{color:rgba(247,245,239,0.62); font-size:0.93rem;}
 
-  /* ---------- Evidence chain (new, from the Amana directive) ---------- */
+  /* ---------- Evidence chain (new, from the YayaAiki directive) ---------- */
   .chain{display:grid; grid-template-columns:repeat(4,1fr); gap:0; position:relative;}
   .chain-step{background:var(--navy-soft); border:1px solid var(--navy-line); padding:22px 20px; position:relative;}
   .chain-step:not(:first-child){border-left:none;}
