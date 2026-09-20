@@ -242,3 +242,28 @@ export const auditEvent = pgTable("audit_event", {
   ipAddress: inet("ip_address"),
   occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const intakeStatusEnum = pgEnum("intake_status", ["RECEIVED", "IN_REVIEW", "CONVERTED", "DECLINED"]);
+
+export const intake = pgTable("intake", {
+  intakeId: uuid("intake_id").primaryKey().defaultRandom(),
+  publicId: text("public_id").notNull().unique(), // e.g. INT-NG-123456, shown to the requester
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  expectedOutput: text("expected_output").notNull(),
+  quantity: text("quantity").notNull(),
+  deadline: text("deadline"),
+  acceptanceCriteria: text("acceptance_criteria"),
+  evidenceExpected: text("evidence_expected"),
+  dataClassRequested: text("data_class_requested"),
+  frequency: text("frequency"),
+  budgetRange: text("budget_range"),
+  contactName: text("contact_name").notNull(),
+  contactOrganization: text("contact_organization").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  contactPhone: text("contact_phone").notNull(),
+  status: intakeStatusEnum("status").notNull().default("RECEIVED"),
+  convertedWorkOrderId: uuid("converted_work_order_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
