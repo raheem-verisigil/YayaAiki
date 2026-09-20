@@ -18,6 +18,7 @@ export const userRoleEnum = pgEnum("role", ["user","admin"]);
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
+  // NOTE: despite the name, this stores the Supabase auth user's UUID (authUser.id from sdk.ts), not a Manus OAuth id. Kept as "openId" to avoid an unnecessary migration.
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
