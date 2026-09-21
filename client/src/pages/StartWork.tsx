@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, ArrowRight, Check, ClipboardCheck, LockKeyhole, MessageCircle, ShieldCheck } from "lucide-react";
 
@@ -40,6 +41,7 @@ export default function StartWork() {
   const [consent, setConsent] = useState(false);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const intakeMutation = trpc.intake.submit.useMutation();
   const update = (key: keyof Intake, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const canContinue = useMemo(() => {
     if (step === 0) return Boolean(form.category && form.title && form.description && form.output && form.quantity);
@@ -57,9 +59,26 @@ export default function StartWork() {
 
   const submit = () => {
     if (!canContinue) { setError("Complete your contact details before submitting."); return; }
-    const id = `INT-NG-${String(Math.floor(100000 + Math.random() * 899999))}`;
-    sessionStorage.setItem(`yayaaiki-intake-${id}`, JSON.stringify({ ...form, id, status: "RECEIVED" }));
-    setSubmitted(id);
+    intakeMutation.mutate({
+      category: form.category,
+      title: form.title,
+      description: form.description,
+      expectedOutput: form.output,
+      quantity: form.quantity,
+      deadline: form.deadline || undefined,
+      acceptanceCriteria: form.acceptance || undefined,
+      evidenceExpected: form.evidence || undefined,
+      dataClassRequested: form.dataClass || undefined,
+      frequency: form.frequency || undefined,
+      budgetRange: form.budget || undefined,
+      contactName: form.name,
+      contactOrganization: form.organization,
+      contactEmail: form.email,
+      contactPhone: form.phone,
+    }, {
+      onSuccess: (result) => setSubmitted(result.publicId),
+      onError: (err) => setError(err.message || "Something went wrong submitting your request. Please try again."),
+    });
   };
 
   if (submitted) return <main className="intake-shell"><header className="intake-nav container"><Link href="/" className="intake-brand"><img src="/yayaaiki-logo.png" alt="YayaAiki — Work, Verified, Valued" /></Link><a href="https://wa.me/2348112051880?text=Hello%20YayaAiki%2C%20I%20need%20help%20with%20my%20work%20request." className="intake-help"><MessageCircle size={15} /> Need help?</a></header><section className="intake-success container"><div className="success-mark"><Check size={30} /></div><p className="intake-eyebrow">WORK INTAKE RECEIVED</p><h1>Your requirement is in the queue.</h1><p className="success-lede">We’ll review the brief and either ask for clarification or prepare a structured Work Order and quote. No capacity, price, verification, or payment is confirmed yet.</p><div className="intake-id-card"><span>INTAKE ID</span><strong>{submitted}</strong><small>Keep this ID to reference your request.</small></div><div className="success-actions"><button className="intake-primary" onClick={() => navigate(`/intake/${submitted}`)}>Track request <ArrowRight size={16} /></button><Link className="intake-secondary" href="/">Back to YayaAiki</Link></div></section></main>;
