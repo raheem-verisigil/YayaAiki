@@ -15,6 +15,13 @@
       "when": 1789937038349,
       "tag": "0001_magical_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790077016414,
+      "tag": "0002_serious_betty_ross",
+      "breakpoints": true
     }
   ]
 }

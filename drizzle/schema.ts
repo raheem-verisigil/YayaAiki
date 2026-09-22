@@ -267,3 +267,21 @@ export const intake = pgTable("intake", {
   convertedWorkOrderId: uuid("converted_work_order_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const workerInterestStatusEnum = pgEnum("worker_interest_status", ["RECEIVED", "CONTACTED", "ONBOARDED", "DECLINED"]);
+
+export const workerInterest = pgTable("worker_interest", {
+  workerInterestId: uuid("worker_interest_id").primaryKey().defaultRandom(),
+  publicId: text("public_id").notNull().unique(), // e.g. WK-NG-123456, shown to the applicant
+  fullName: text("full_name").notNull(),
+  phone: text("phone").notNull(),
+  email: text("email"),
+  location: text("location").notNull(),
+  workTypes: text("work_types").notNull(), // free text: "data entry, transcription, delivery"
+  experienceLevel: text("experience_level"),
+  availability: text("availability"),
+  whatsappOptIn: boolean("whatsapp_opt_in").notNull().default(true),
+  status: workerInterestStatusEnum("status").notNull().default("RECEIVED"),
+  convertedActorId: uuid("converted_actor_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
