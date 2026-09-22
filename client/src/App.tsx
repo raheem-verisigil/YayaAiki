@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import IntakeStatus from "./pages/IntakeStatus";
 import StartWork from "./pages/StartWork";
+import JoinAsWorker from "./pages/JoinAsWorker";
 import Workspace from "./pages/Workspace";
 
 function Router() {
@@ -15,6 +16,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/start-work" component={StartWork} />
       <Route path="/start" component={StartWork} />
+      <Route path="/join" component={JoinAsWorker} />
+      <Route path="/join-as-worker" component={JoinAsWorker} />
       <Route path="/intake/:publicId" component={IntakeStatus} />
       <Route path="/for-business">
         <Workspace mode="business" />
