@@ -1,11 +1,11 @@
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, inArray } from "drizzle-orm";
 import { protectedProcedure, router } from "./trpc";
 import { getDb } from "../db";
 import {
-  tenant, actor, workOrder, evidence, verification,
-  reputationFact, event,
+  tenant, actor, workOrder, workOrderAssignment, evidence, verification,
+  reputationFact, event, paymentCommitment, paymentAuthorization, paymentTransaction,
 } from "../../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 
@@ -14,7 +14,7 @@ import { TRPCError } from "@trpc/server";
 // platform tenant. Real multi-tenant client onboarding (separate tenants
 // per client company) is deferred — see ADR-001 Phase 2/3.
 
-async function ensureDefaultTenant(db: NonNullable<Awaited<ReturnType<typeof getDb>>>) {
+export async function ensureDefaultTenant(db: NonNullable<Awaited<ReturnType<typeof getDb>>>) {
   const existing = await db.select().from(tenant).where(eq(tenant.tenantName, "YayaAiki Platform")).limit(1);
   if (existing.length) return existing[0];
   const [created] = await db.insert(tenant).values({
@@ -25,7 +25,7 @@ async function ensureDefaultTenant(db: NonNullable<Awaited<ReturnType<typeof get
   return created;
 }
 
-async function ensureActorForUser(
+export async function ensureActorForUser(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   userId: number,
   actorType: "CLIENT" | "WORKER" | "VERIFIER",
@@ -46,7 +46,7 @@ async function ensureActorForUser(
 }
 
 // --- Event log helper ------------------------------------------------------
-async function appendEvent(
+export async function appendEvent(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   args: { eventType: string; aggregateType: string; aggregateId: string; actorId?: string; tenantId: string; payload: unknown },
 ) {
@@ -122,6 +122,46 @@ export const workEngineRouter = router({
         const [order] = await db.select().from(workOrder).where(eq(workOrder.workOrderId, input.workOrderId)).limit(1);
         if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Work order not found" });
         return order;
+      }),
+
+    listForActor: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const userActors = await db.select().from(actor).where(eq(actor.userId, ctx.user.id));
+      if (userActors.length === 0) return [];
+      const actorIds = userActors.map(a => a.actorId);
+
+      const asClient = await db.select().from(workOrder).where(inArray(workOrder.clientActorId, actorIds));
+      const assignments = await db.select().from(workOrderAssignment).where(inArray(workOrderAssignment.actorId, actorIds));
+      const assignedOrderIds = assignments.map(a => a.workOrderId);
+      const asWorker = assignedOrderIds.length
+        ? await db.select().from(workOrder).where(inArray(workOrder.workOrderId, assignedOrderIds))
+        : [];
+
+      const seen = new Set<string>();
+      const combined = [...asClient, ...asWorker].filter(o => {
+        if (seen.has(o.workOrderId)) return false;
+        seen.add(o.workOrderId);
+        return true;
+      });
+      return combined;
+    }),
+
+    listAll: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      return db.select().from(workOrder).orderBy(workOrder.createdAt);
+    }),
+  }),
+
+  event: router({
+    listRecent: protectedProcedure
+      .input(z.object({ limit: z.number().min(1).max(200).default(50) }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+        return db.select().from(event).orderBy(event.occurredAt).limit(input.limit);
       }),
   }),
 
@@ -237,14 +277,80 @@ export const workEngineRouter = router({
           payload: { verificationId: v.verificationId, decision: input.decision },
         });
 
-        // NOTE: Payment Authorization is deliberately NOT implemented here.
-        // It requires selecting a licensed payment provider (Paystack,
-        // Flutterwave, etc.) first — a business/compliance decision, not
-        // a default I should pick. See ADR-001 §16 "Payment boundary."
-        // TODO: on PASS, call paymentAuthorization creation once a provider
-        // is chosen and its integration boundary is defined.
-
         return v;
+      }),
+  }),
+
+  payment: router({
+    // Minimum honest payment flow, per docs/PHASE-B-SCOPE.md section 2.
+    // No gateway integration yet - staff manually confirms a bank transfer
+    // was received. The paymentTransaction table is the same schema a real
+    // Paystack/Flutterwave integration will use later; only providerName
+    // changes from MANUAL_BANK_TRANSFER to a real provider.
+
+    listPendingForOps: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      return db.select().from(paymentTransaction).where(eq(paymentTransaction.status, "PENDING"));
+    }),
+
+    confirmReceived: protectedProcedure
+      .input(z.object({ workOrderId: z.string().uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+        const [order] = await db.select().from(workOrder).where(eq(workOrder.workOrderId, input.workOrderId)).limit(1);
+        if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Work order not found" });
+        if (order.status !== "VERIFICATION_PASSED") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Work order must pass verification before payment can be authorized" });
+        }
+
+        const [ev] = await db.select().from(evidence).where(eq(evidence.workOrderId, input.workOrderId)).limit(1);
+        if (!ev) throw new TRPCError({ code: "NOT_FOUND", message: "No evidence found for this work order" });
+
+        const [passedVerification] = await db.select().from(verification)
+          .where(and(eq(verification.evidenceId, ev.evidenceId), eq(verification.decision, "PASS"))).limit(1);
+        if (!passedVerification) throw new TRPCError({ code: "NOT_FOUND", message: "No passing verification found" });
+
+        const staffActor = await ensureActorForUser(db, ctx.user.id, "VERIFIER", ctx.user.name ?? "Staff");
+
+        const [commitment] = await db.insert(paymentCommitment).values({
+          workOrderId: input.workOrderId,
+          amount: order.priceAmount,
+          currency: order.currency,
+          status: "RELEASED",
+        }).returning();
+
+        const [authorization] = await db.insert(paymentAuthorization).values({
+          commitmentId: commitment.commitmentId,
+          verificationId: passedVerification.verificationId,
+          payeeActorId: ev.actorId,
+          amount: order.priceAmount,
+          authorizedBy: staffActor.actorId,
+        }).returning();
+
+        const [transaction] = await db.insert(paymentTransaction).values({
+          authorizationId: authorization.authorizationId,
+          providerName: "MANUAL_BANK_TRANSFER",
+          providerReference: `MANUAL-${Date.now()}`,
+          amount: order.priceAmount,
+          status: "CONFIRMED",
+          confirmedAt: new Date(),
+        }).returning();
+
+        await db.update(workOrder).set({ status: "PAYMENT_CONFIRMED" }).where(eq(workOrder.workOrderId, input.workOrderId));
+
+        await appendEvent(db, {
+          eventType: "PAYMENT_CONFIRMED",
+          aggregateType: "WorkOrder",
+          aggregateId: input.workOrderId,
+          actorId: staffActor.actorId,
+          tenantId: order.tenantId,
+          payload: { transactionId: transaction.transactionId, amount: order.priceAmount, method: "MANUAL_BANK_TRANSFER" },
+        });
+
+        return transaction;
       }),
   }),
 });
