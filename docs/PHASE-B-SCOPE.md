@@ -57,3 +57,25 @@ Once step 5 passes with a real test business and worker account, that is the act
 ---
 
 Written after Phase 1's first successful live production request (INT-NG-454023, yayaaiki.com).
+
+---
+
+## Incident note: local tunnel migrations are unreliable — use Railway Console instead
+
+On 2026-09-22, a migration (worker_interest table) applied successfully through
+`railway connect Postgres --tunnel-only` but never reached the actual production
+database the live app uses — the tunnel connected to something else. Diagnosed
+via Railway's Console tab (runs inside the real container, uses the real
+DATABASE_URL directly, no proxy ambiguity), then fixed by applying the migration
+SQL manually there:
+
+  node -e "const {Client}=require('pg');(async()=>{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();const sql=require('fs').readFileSync('drizzle/migrations/FILENAME.sql','utf-8');await c.query(sql);console.log('done');await c.end();})();"
+
+RULE GOING FORWARD: apply every future migration through Railway's browser
+Console (YayaAiki service -> Console tab), not the local tunnel. The tunnel
+remains fine for read-only verification queries, but treat any migration run
+through it as unconfirmed until double-checked via Console.
+
+Also: always commit a new router file together with the routers.ts edit that
+imports it, in the same commit — splitting them (as happened with
+workerInterestRouter.ts) creates a real, if brief, broken deployment window.
