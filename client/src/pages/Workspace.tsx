@@ -28,25 +28,27 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
+import type { AppRouter } from "../../../server/routers";
+import type { inferRouterOutputs } from "@trpc/server";
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type WorkOrderRow = RouterOutputs["workEngine"]["workOrder"]["listForActor"][number];
+type EventRow = RouterOutputs["workEngine"]["event"]["listRecent"][number];
 
 const whatsapp = "https://wa.me/2348112051880?text=Hello%20YayaAiki%2C%20I%27d%20like%20help%20with%20my%20workspace.";
 
 type WorkspaceMode = "business" | "professional" | "ops";
 
-const workOrders = [
-  { id: "WO-2048", title: "Retail inventory audit", client: "Kora Retail", actor: "Amaka Okafor", location: "Lagos", status: "In verification", statusKey: "verification", amount: "₦180,000", updated: "8 min ago", progress: 78 },
-  { id: "WO-2047", title: "Customer support playbook", client: "Sankofa Health", actor: "Tunde Ajayi", location: "Remote", status: "Payment confirmed", statusKey: "paid", amount: "₦95,000", updated: "Yesterday", progress: 100 },
-  { id: "WO-2046", title: "Market-entry interviews", client: "Maji Labs", actor: "Aisha Bello", location: "Accra", status: "Rework requested", statusKey: "rework", amount: "₦240,000", updated: "Yesterday", progress: 52 },
-  { id: "WO-2045", title: "Data cleanup sprint", client: "Nia Finance", actor: "Chinedu Obi", location: "Remote", status: "Work started", statusKey: "active", amount: "₦120,000", updated: "2 days ago", progress: 34 },
-];
-
-const events = [
-  { time: "14:03:11", type: "EVIDENCE_SUBMITTED", actor: "Amaka Okafor", order: "WO-2048", detail: "18 artifacts · sha256: 4c8a…a91d", tone: "blue" },
-  { time: "13:42:08", type: "WORK_STARTED", actor: "Amaka Okafor", order: "WO-2048", detail: "Location check-in · Lagos", tone: "olive" },
-  { time: "09:28:44", type: "ACTOR_ASSIGNED", actor: "Ops / assignment", order: "WO-2048", detail: "Independent actor assigned", tone: "gold" },
-  { time: "09:14:26", type: "FUNDS_RESERVED", actor: "Kora Retail", order: "WO-2048", detail: "₦180,000 commitment created", tone: "coral" },
-  { time: "08:57:02", type: "WORK_ORDER_CREATED", actor: "Kora Retail", order: "WO-2048", detail: "Policy v1.3 · acceptance set", tone: "purple" },
-];
+// Real data hooks - replaces the mock arrays above. See docs/PHASE-B-SCOPE.md.
+function useRealWorkOrders() {
+  return trpc.workEngine.workOrder.listForActor.useQuery();
+}
+function useRealAllWorkOrders() {
+  return trpc.workEngine.workOrder.listAll.useQuery();
+}
+function useRealEvents(limit = 50) {
+  return trpc.workEngine.event.listRecent.useQuery({ limit });
+}
 
 function Brand() { return <Link href="/" className="brand-lockup workspace-brand"><img className="brand-full-logo" src="/yayaaiki-logo.png" alt="YayaAiki — Work, Verified, Valued" /></Link>; }
 function StatusPill({ children, tone = "blue" }: { children: React.ReactNode; tone?: string }) { return <span className={`status-pill ${tone}`}><span className="status-dot" />{children}</span>; }
@@ -63,20 +65,61 @@ function WorkspaceHeader({ mode, onMenu }: { mode: WorkspaceMode; onMenu: () => 
 
 function StatCard({ label, value, note, icon: Icon, tone }: { label: string; value: string; note: string; icon: LucideIcon; tone: string }) { return <div className={`stat-card ${tone}`}><div className="stat-card-top"><span>{label}</span><Icon size={19} /></div><strong>{value}</strong><span className="stat-note">{note}</span></div>; }
 
-function WorkOrderCard({ item, onSelect }: { item: typeof workOrders[number]; onSelect: () => void }) { return <button className="work-order-card" onClick={onSelect}><div className="work-order-top"><span className="mono work-id">{item.id}</span><StatusPill tone={item.statusKey === "paid" ? "green" : item.statusKey === "rework" ? "coral" : item.statusKey === "active" ? "gold" : "blue"}>{item.status}</StatusPill></div><h3>{item.title}</h3><div className="work-order-meta"><span>{item.client}</span><span>{item.location}</span><span>{item.amount}</span></div><div className="progress-label"><span>Work order progress</span><span>{item.progress}%</span></div><div className="progress-bar"><span style={{ width: `${item.progress}%` }} /></div><div className="work-order-bottom"><span>Updated {item.updated}</span><ArrowUpRight size={15} /></div></button>; }
+function fmtAmount(order: WorkOrderRow) {
+  const amount = Number(order.priceAmount);
+  return `${order.currency} ${amount.toLocaleString()}`;
+}
+
+function fmtDate(value: string | Date) {
+  const d = new Date(value);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function statusLabel(status: string) {
+  const map: Record<string, string> = {
+    CREATED: "Created", FUNDS_RESERVED: "Funds reserved", ACTOR_ASSIGNED: "Actor assigned",
+    WORK_STARTED: "Work started", EVIDENCE_SUBMITTED: "Evidence submitted",
+    VERIFICATION_PASSED: "In verification", VERIFICATION_FAILED: "Verification failed",
+    REWORK_REQUESTED: "Rework requested", PAYMENT_AUTHORIZED: "Payment authorized",
+    PAYMENT_CONFIRMED: "Payment confirmed", CLOSED: "Closed", CANCELLED: "Cancelled", DISPUTED: "Disputed",
+  };
+  return map[status] ?? status;
+}
+
+function statusTone(status: string) {
+  if (status === "PAYMENT_CONFIRMED") return "green";
+  if (status === "REWORK_REQUESTED" || status === "VERIFICATION_FAILED" || status === "DISPUTED") return "coral";
+  if (status === "WORK_STARTED" || status === "ACTOR_ASSIGNED") return "gold";
+  return "blue";
+}
+
+function WorkOrderCard({ item, onSelect }: { item: WorkOrderRow; onSelect: () => void }) {
+  const spec = (item.specification ?? {}) as { title?: string };
+  const title = spec.title || item.taskType;
+  return <button className="work-order-card" onClick={onSelect}><div className="work-order-top"><span className="mono work-id">{item.workOrderId.slice(0, 8)}</span><StatusPill tone={statusTone(item.status)}>{statusLabel(item.status)}</StatusPill></div><h3>{title}</h3><div className="work-order-meta"><span>{item.taskType}</span><span>{item.jurisdiction}</span><span>{fmtAmount(item)}</span></div><div className="work-order-bottom"><span>Created {fmtDate(item.createdAt)}</span><ArrowUpRight size={15} /></div></button>;
+}
 
 function BusinessView({ selected, setSelected }: { selected: string | null; setSelected: (id: string | null) => void }) {
   const [showForm, setShowForm] = useState(false);
+  const { data: workOrders, isLoading, error } = useRealWorkOrders();
+  const list = workOrders ?? [];
+  const activeCount = list.filter(o => o.status !== "CLOSED" && o.status !== "CANCELLED").length;
+  const fundsReserved = list.reduce((sum, o) => sum + (o.status !== "CLOSED" && o.status !== "CANCELLED" ? Number(o.priceAmount) : 0), 0);
+  const verifiedCount = list.filter(o => o.status === "PAYMENT_CONFIRMED").length;
+  const selectedOrder = list.find(o => o.workOrderId === selected);
   return <>
     <div className="workspace-toolbar"><div className="toolbar-filter"><Filter size={16} /> All work orders <ChevronDown size={14} /></div><div className="toolbar-actions"><a href={whatsapp} className="button button-outline"><MessageCircle size={16} /> Talk to support</a><button className="button button-accent" onClick={() => setShowForm(!showForm)}><Plus size={17} /> Create work order</button></div></div>
     {showForm && <div className="inline-form"><div><span className="kicker">NEW WORK ORDER</span><h3>What needs to get done?</h3><p>Start with a clear brief. Our team will help you turn it into an accountable workflow.</p></div><div className="form-row"><input placeholder="e.g. Audit 3 retail locations in Lagos" /><button className="button button-dark" onClick={() => { setShowForm(false); toast.success("Brief saved — a YayaAiki coordinator will follow up shortly."); }}>Save brief <Send size={15} /></button></div></div>}
-    <div className="workspace-grid stats-grid"><StatCard label="Active work orders" value="04" note="2 need your attention" icon={ClipboardCheck} tone="coral" /><StatCard label="Funds reserved" value="₦635k" note="Across active work" icon={CircleDollarSign} tone="gold" /><StatCard label="Verified this month" value="12" note="+28% vs last month" icon={ShieldCheck} tone="olive" /><StatCard label="Average time to proof" value="2.4d" note="Down from 3.1d" icon={Clock3} tone="blue" /></div>
+    <div className="workspace-grid stats-grid"><StatCard label="Active work orders" value={String(activeCount).padStart(2, "0")} note="Live count" icon={ClipboardCheck} tone="coral" /><StatCard label="Funds reserved" value={`₦${fundsReserved.toLocaleString()}`} note="Across active work" icon={CircleDollarSign} tone="gold" /><StatCard label="Payment confirmed" value={String(verifiedCount).padStart(2, "0")} note="Completed work orders" icon={ShieldCheck} tone="olive" /><StatCard label="Total work orders" value={String(list.length).padStart(2, "0")} note="All time" icon={Clock3} tone="blue" /></div>
     <div className="workspace-section-head" id="orders"><div><span className="kicker">YOUR WORK ORDERS</span><h2>Everything in one thread.</h2></div><a className="text-link" href="#orders">View all <ArrowUpRight size={15} /></a></div>
-    <div className="work-orders-grid">{workOrders.map(item => <WorkOrderCard key={item.id} item={item} onSelect={() => setSelected(item.id)} />)}</div>
-    <div className="workspace-lower-grid"><div className="attention-card"><div className="section-card-head"><div><span className="kicker">NEEDS YOUR ATTENTION</span><h3>One decision is waiting.</h3></div><MoreHorizontal size={18} /></div><div className="attention-item"><div className="attention-icon"><FileCheck2 size={19} /></div><div><strong>Review evidence for WO-2048</strong><span>18 artifacts are ready for your acceptance.</span></div><button onClick={() => toast.success("Evidence review opened.")}><ArrowUpRight size={16} /></button></div></div><div className="mini-event-card"><div className="section-card-head"><div><span className="kicker">LATEST ACTIVITY</span><h3>Your proof trail.</h3></div><Activity size={18} /></div><div className="mini-events"><div><span className="mini-event-dot green" /><span><strong>Payment confirmed</strong><small>WO-2047 · Yesterday</small></span></div><div><span className="mini-event-dot blue" /><span><strong>Evidence submitted</strong><small>WO-2048 · 8 min ago</small></span></div><div><span className="mini-event-dot gold" /><span><strong>Actor assigned</strong><small>WO-2045 · 2 days ago</small></span></div></div></div></div>
-    {selected && <div className="drawer-backdrop" onClick={() => setSelected(null)}><div className="detail-drawer" onClick={e => e.stopPropagation()}><button className="drawer-close" onClick={() => setSelected(null)}><X size={18} /></button><span className="kicker">WORK ORDER DETAIL</span><span className="mono work-id">{selected}</span><h2>Retail inventory audit</h2><p className="drawer-lede">The full evidence and payment thread stays attached to the same work order.</p><div className="drawer-timeline"><div className="drawer-line done"><span><Check size={13} /></span><div><strong>Funds reserved</strong><small>₦180,000 · Kora Retail</small></div></div><div className="drawer-line done"><span><Check size={13} /></span><div><strong>Actor assigned</strong><small>Amaka Okafor · verified professional</small></div></div><div className="drawer-line current"><span><ShieldCheck size={13} /></span><div><strong>Evidence in verification</strong><small>18 files · independent reviewer</small></div></div><div className="drawer-line"><span><WalletCards size={13} /></span><div><strong>Payment authorization</strong><small>Follows a verified pass</small></div></div></div><button className="button button-dark full-width" onClick={() => { setSelected(null); toast.success("Opening the evidence review flow."); }}>Open evidence review <ArrowUpRight size={15} /></button></div></div>}
+    {isLoading && <p>Loading your work orders…</p>}
+    {error && <p className="intake-error">Could not load work orders. Please refresh.</p>}
+    {!isLoading && !error && list.length === 0 && <div className="attention-card"><div className="section-card-head"><div><span className="kicker">NO WORK ORDERS YET</span><h3>Nothing here yet — that's expected for a new account.</h3></div></div><div className="attention-item"><div><strong>Submit your first request</strong><span>Start with an intake — our team reviews it and converts it into a tracked work order.</span></div><a className="button button-accent" href="/start-work">Start a work order <ArrowUpRight size={16} /></a></div></div>}
+    {!isLoading && list.length > 0 && <div className="work-orders-grid">{list.map(item => <WorkOrderCard key={item.workOrderId} item={item} onSelect={() => setSelected(item.workOrderId)} />)}</div>}
+    {selected && selectedOrder && <div className="drawer-backdrop" onClick={() => setSelected(null)}><div className="detail-drawer" onClick={e => e.stopPropagation()}><button className="drawer-close" onClick={() => setSelected(null)}><X size={18} /></button><span className="kicker">WORK ORDER DETAIL</span><span className="mono work-id">{selectedOrder.workOrderId.slice(0, 8)}</span><h2>{((selectedOrder.specification ?? {}) as { title?: string }).title || selectedOrder.taskType}</h2><p className="drawer-lede">Status: {statusLabel(selectedOrder.status)} · {fmtAmount(selectedOrder)}</p><button className="button button-dark full-width" onClick={() => setSelected(null)}>Close</button></div></div>}
   </>;
 }
+
 
 function ProfessionalView({ selected, setSelected }: { selected: string | null; setSelected: (id: string | null) => void }) {
   return <>
@@ -91,13 +134,54 @@ function ProfessionalView({ selected, setSelected }: { selected: string | null; 
 
 function OpsView() {
   const [filter, setFilter] = useState("All events");
-  const filtered = useMemo(() => filter === "All events" ? events : events.filter(event => event.type.includes(filter.replace(" events", "").toUpperCase().replace(" ", "_"))), [filter]);
+  const { data: events, isLoading: eventsLoading } = useRealEvents(100);
+  const { data: allOrders, isLoading: ordersLoading } = useRealAllWorkOrders();
+  const confirmPayment = trpc.workEngine.payment.confirmReceived.useMutation();
+  const utils = trpc.useUtils();
+
+  const list = events ?? [];
+  const filtered = useMemo(() => filter === "All events" ? list : list.filter((e: EventRow) => e.eventType.includes(filter.replace(" events", "").toUpperCase().replace(" ", "_"))), [filter, list]);
+
+  const orders = allOrders ?? [];
+  const pendingPayment = orders.filter(o => o.status === "VERIFICATION_PASSED");
+  const openCount = orders.filter(o => o.status !== "CLOSED" && o.status !== "CANCELLED").length;
+  const awaitingVerification = orders.filter(o => o.status === "EVIDENCE_SUBMITTED").length;
+  const totalReserved = orders.reduce((sum, o) => sum + (o.status !== "CLOSED" && o.status !== "CANCELLED" ? Number(o.priceAmount) : 0), 0);
+
+  const handleConfirmPayment = (workOrderId: string) => {
+    confirmPayment.mutate({ workOrderId }, {
+      onSuccess: () => {
+        toast.success("Payment marked as confirmed.");
+        utils.workEngine.workOrder.listAll.invalidate();
+        utils.workEngine.event.listRecent.invalidate();
+      },
+      onError: (err) => toast.error(err.message || "Could not confirm payment."),
+    });
+  };
+
   return <>
-    <div className="ops-banner"><div className="ops-signal"><span /><span /><span /></div><div><span className="kicker">SYSTEM HEALTH · ALL CLEAR</span><h2>The work engine is moving.</h2><p>Five work orders are active. Every consequential action is traceable.</p></div><div className="ops-banner-meta"><span>Last event</span><strong>14:03:11 UTC</strong><span>Policy version</span><strong>v1.3</strong></div></div>
-    <div className="workspace-grid stats-grid"><StatCard label="Open work orders" value="24" note="+6 since Monday" icon={ClipboardCheck} tone="coral" /><StatCard label="Awaiting verification" value="07" note="2 nearing SLA" icon={ShieldCheck} tone="gold" /><StatCard label="Payment commitments" value="₦2.8m" note="Across 18 orders" icon={CircleDollarSign} tone="olive" /><StatCard label="System events today" value="184" note="Append-only · healthy" icon={Activity} tone="blue" /></div>
-    <div className="ops-grid"><div className="event-card" id="activity"><div className="section-card-head"><div><span className="kicker">APPEND-ONLY EVENT HISTORY</span><h3>Every action leaves a trace.</h3></div><div className="event-actions"><button className="toolbar-filter" onClick={() => setFilter(filter === "All events" ? "Evidence events" : "All events")}><Filter size={15} /> {filter} <ChevronDown size={14} /></button><button className="icon-button"><MoreHorizontal size={18} /></button></div></div><div className="event-table"><div className="event-table-head"><span>EVENT</span><span>ACTOR</span><span>WORK ORDER</span><span>DETAIL</span><span>TIME</span></div>{filtered.map((event, index) => <div className="event-row" key={index}><span><span className={`event-tone ${event.tone}`} /><strong>{event.type}</strong></span><span>{event.actor}</span><span className="mono">{event.order}</span><span>{event.detail}</span><span className="mono time">{event.time}</span></div>)}</div><div className="event-card-footer"><span><span className="pulse-dot" /> Live event stream</span><a href="#activity">Export audit view <ArrowUpRight size={14} /></a></div></div><div className="ops-side"><div className="queue-card"><div className="section-card-head"><div><span className="kicker">VERIFICATION QUEUE</span><h3>Make the next call.</h3></div><Clock3 size={18} /></div><div className="queue-item"><span className="queue-priority high">HIGH</span><div><strong>WO-2048 · Retail audit</strong><span>18 evidence items · Lagos</span></div><button onClick={() => toast.success("Opening verification review.")}><ArrowUpRight size={15} /></button></div><div className="queue-item"><span className="queue-priority medium">MED</span><div><strong>WO-2046 · Market interviews</strong><span>Rework response received</span></div><button onClick={() => toast.success("Opening rework review.")}><ArrowUpRight size={15} /></button></div><div className="queue-item"><span className="queue-priority low">LOW</span><div><strong>WO-2042 · Data cleanup</strong><span>Verifier assigned · due tomorrow</span></div><button onClick={() => toast.success("Opening order detail.")}><ArrowUpRight size={15} /></button></div><a className="text-link" href="#activity">Open full queue <ArrowUpRight size={14} /></a></div><div className="ops-principle"><ShieldCheck size={21} /><div><strong>Verification is independent.</strong><p>Submission and approval are deliberately separated in the control plane.</p></div></div></div></div>
+    <div className="ops-banner"><div className="ops-signal"><span /><span /><span /></div><div><span className="kicker">SYSTEM HEALTH</span><h2>The work engine is moving.</h2><p>{openCount} work orders are active. Every consequential action is traceable.</p></div></div>
+    <div className="workspace-grid stats-grid"><StatCard label="Open work orders" value={String(openCount).padStart(2, "0")} note="Live count" icon={ClipboardCheck} tone="coral" /><StatCard label="Awaiting verification" value={String(awaitingVerification).padStart(2, "0")} note="Evidence submitted" icon={ShieldCheck} tone="gold" /><StatCard label="Funds reserved" value={`₦${totalReserved.toLocaleString()}`} note="Across open orders" icon={CircleDollarSign} tone="olive" /><StatCard label="System events" value={String(list.length)} note="Append-only · healthy" icon={Activity} tone="blue" /></div>
+    <div className="ops-grid">
+      <div className="event-card" id="activity">
+        <div className="section-card-head"><div><span className="kicker">APPEND-ONLY EVENT HISTORY</span><h3>Every action leaves a trace.</h3></div><div className="event-actions"><button className="toolbar-filter" onClick={() => setFilter(filter === "All events" ? "Evidence events" : "All events")}><Filter size={15} /> {filter} <ChevronDown size={14} /></button></div></div>
+        {eventsLoading && <p>Loading events…</p>}
+        {!eventsLoading && filtered.length === 0 && <p>No events recorded yet.</p>}
+        {!eventsLoading && filtered.length > 0 && <div className="event-table"><div className="event-table-head"><span>EVENT</span><span>ACTOR</span><span>WORK ORDER</span><span>TIME</span></div>{filtered.map((e: EventRow) => <div className="event-row" key={e.eventId}><span><strong>{e.eventType}</strong></span><span className="mono">{e.actorId ? e.actorId.slice(0, 8) : "system"}</span><span className="mono">{e.aggregateId.slice(0, 8)}</span><span className="mono time">{new Date(e.occurredAt).toLocaleString()}</span></div>)}</div>}
+      </div>
+      <div className="ops-side">
+        <div className="queue-card">
+          <div className="section-card-head"><div><span className="kicker">PAYMENT QUEUE</span><h3>Verified work awaiting payment confirmation.</h3></div><Clock3 size={18} /></div>
+          {ordersLoading && <p>Loading…</p>}
+          {!ordersLoading && pendingPayment.length === 0 && <p>Nothing pending — all verified work is paid.</p>}
+          {!ordersLoading && pendingPayment.map(o => <div className="queue-item" key={o.workOrderId}><span className="queue-priority high">READY</span><div><strong>{((o.specification ?? {}) as { title?: string }).title || o.taskType}</strong><span>{o.currency} {Number(o.priceAmount).toLocaleString()}</span></div><button onClick={() => handleConfirmPayment(o.workOrderId)} disabled={confirmPayment.isPending}>{confirmPayment.isPending ? "…" : <ArrowUpRight size={15} />}</button></div>)}
+        </div>
+        <div className="ops-principle"><ShieldCheck size={21} /><div><strong>Verification is independent.</strong><p>Submission and approval are deliberately separated in the control plane.</p></div></div>
+      </div>
+    </div>
   </>;
 }
+
 
 export default function Workspace({ mode }: { mode: WorkspaceMode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
