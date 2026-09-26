@@ -78,6 +78,7 @@ export default function Home() {
           <a href="#trust" onClick={() => setMobileOpen(false)}>Trust</a>
         </div>
         <div className="nav-actions">
+          <Link className="nav-signin" href="/login">Sign in</Link>
           <Link className="button button-dark button-small" href="/start-work">Start a Work Order <ArrowUpRight size={15} /></Link>
           <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation">{mobileOpen ? <X size={22} /> : <Menu size={22} />}</button>
         </div>
