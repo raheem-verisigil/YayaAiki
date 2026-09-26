@@ -29,6 +29,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import type { AppRouter } from "../../../server/routers";
 import type { inferRouterOutputs } from "@trpc/server";
 type RouterOutputs = inferRouterOutputs<AppRouter>;
@@ -217,5 +218,11 @@ function OpsView() {
 export default function Workspace({ mode }: { mode: WorkspaceMode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const { loading, isAuthenticated } = useAuth({ redirectOnUnauthenticated: mode === "ops", redirectPath: "/login" });
+
+  if (mode === "ops" && (loading || !isAuthenticated)) {
+    return <div className="workspace-shell"><div className="workspace-main"><main className="workspace-content container"><p style={{ padding: "3rem 0" }}>{loading ? "Checking access…" : "Redirecting to sign in…"}</p></main></div></div>;
+  }
+
   return <div className="workspace-shell"><Sidebar mode={mode} open={sidebarOpen} onClose={() => setSidebarOpen(false)} /><div className="workspace-main"><WorkspaceHeader mode={mode} onMenu={() => setSidebarOpen(true)} /><main className="workspace-content container">{mode === "business" ? <BusinessView selected={selected} setSelected={setSelected} /> : mode === "professional" ? <ProfessionalView selected={selected} setSelected={setSelected} /> : <OpsView />}</main><div className="workspace-footer"><span>YayaAiki internal preview · {mode === "ops" ? "restricted operations surface" : "role-based workspace"}</span><a href={whatsapp}><MessageCircle size={14} /> Need help? WhatsApp us</a></div></div></div>;
 }

@@ -9,6 +9,7 @@ import IntakeStatus from "./pages/IntakeStatus";
 import StartWork from "./pages/StartWork";
 import JoinAsWorker from "./pages/JoinAsWorker";
 import Workspace from "./pages/Workspace";
+import Login from "./pages/Login";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/join" component={JoinAsWorker} />
       <Route path="/join-as-worker" component={JoinAsWorker} />
       <Route path="/intake/:publicId" component={IntakeStatus} />
+      <Route path="/login" component={Login} />
       <Route path="/for-business">
         <Workspace mode="business" />
       </Route>
