@@ -34,6 +34,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type WorkOrderRow = RouterOutputs["workEngine"]["workOrder"]["listForActor"][number];
 type EventRow = RouterOutputs["workEngine"]["event"]["listRecent"][number];
+type IntakeRow = RouterOutputs["intake"]["list"][number];
 
 const whatsapp = "https://wa.me/2348112051880?text=Hello%20YayaAiki%2C%20I%27d%20like%20help%20with%20my%20workspace.";
 
@@ -48,6 +49,9 @@ function useRealAllWorkOrders() {
 }
 function useRealEvents(limit = 50) {
   return trpc.workEngine.event.listRecent.useQuery({ limit });
+}
+function useRealPendingIntakes() {
+  return trpc.intake.list.useQuery();
 }
 
 function Brand() { return <Link href="/" className="brand-lockup workspace-brand"><img className="brand-full-logo" src="/yayaaiki-logo.png" alt="YayaAiki — Work, Verified, Valued" /></Link>; }
@@ -136,7 +140,9 @@ function OpsView() {
   const [filter, setFilter] = useState("All events");
   const { data: events, isLoading: eventsLoading } = useRealEvents(100);
   const { data: allOrders, isLoading: ordersLoading } = useRealAllWorkOrders();
+  const { data: intakes, isLoading: intakesLoading } = useRealPendingIntakes();
   const confirmPayment = trpc.workEngine.payment.confirmReceived.useMutation();
+  const convertIntake = trpc.intake.convert.useMutation();
   const utils = trpc.useUtils();
 
   const list = events ?? [];
@@ -147,6 +153,8 @@ function OpsView() {
   const openCount = orders.filter(o => o.status !== "CLOSED" && o.status !== "CANCELLED").length;
   const awaitingVerification = orders.filter(o => o.status === "EVIDENCE_SUBMITTED").length;
   const totalReserved = orders.reduce((sum, o) => sum + (o.status !== "CLOSED" && o.status !== "CANCELLED" ? Number(o.priceAmount) : 0), 0);
+
+  const pendingIntakes = (intakes ?? []).filter((i: IntakeRow) => i.status === "RECEIVED" || i.status === "IN_REVIEW");
 
   const handleConfirmPayment = (workOrderId: string) => {
     confirmPayment.mutate({ workOrderId }, {
@@ -159,11 +167,33 @@ function OpsView() {
     });
   };
 
+  const handleConvertIntake = (i: IntakeRow) => {
+    const priceInput = window.prompt(`Quote a price for "${i.title}" (NGN, numbers only):`);
+    if (!priceInput) return;
+    const priceAmount = Number(priceInput);
+    if (!priceAmount || priceAmount <= 0) { toast.error("Enter a valid positive number."); return; }
+    convertIntake.mutate({ intakeId: i.intakeId, priceAmount, currency: "NGN", jurisdiction: "NG" }, {
+      onSuccess: (order) => {
+        toast.success(`Converted to Work Order ${order.workOrderId.slice(0, 8)}.`);
+        utils.intake.list.invalidate();
+        utils.workEngine.workOrder.listAll.invalidate();
+        utils.workEngine.event.listRecent.invalidate();
+      },
+      onError: (err) => toast.error(err.message || "Could not convert this intake."),
+    });
+  };
+
   return <>
     <div className="ops-banner"><div className="ops-signal"><span /><span /><span /></div><div><span className="kicker">SYSTEM HEALTH</span><h2>The work engine is moving.</h2><p>{openCount} work orders are active. Every consequential action is traceable.</p></div></div>
     <div className="workspace-grid stats-grid"><StatCard label="Open work orders" value={String(openCount).padStart(2, "0")} note="Live count" icon={ClipboardCheck} tone="coral" /><StatCard label="Awaiting verification" value={String(awaitingVerification).padStart(2, "0")} note="Evidence submitted" icon={ShieldCheck} tone="gold" /><StatCard label="Funds reserved" value={`₦${totalReserved.toLocaleString()}`} note="Across open orders" icon={CircleDollarSign} tone="olive" /><StatCard label="System events" value={String(list.length)} note="Append-only · healthy" icon={Activity} tone="blue" /></div>
     <div className="ops-grid">
       <div className="event-card" id="activity">
+        <div className="queue-card" id="orders" style={{ marginBottom: "1.5rem" }}>
+          <div className="section-card-head"><div><span className="kicker">INTAKE QUEUE</span><h3>New requests awaiting review.</h3></div><Clock3 size={18} /></div>
+          {intakesLoading && <p>Loading…</p>}
+          {!intakesLoading && pendingIntakes.length === 0 && <p>No pending intakes — the queue is clear.</p>}
+          {!intakesLoading && pendingIntakes.map((i: IntakeRow) => <div className="queue-item" key={i.intakeId}><span className="queue-priority high">{i.publicId}</span><div><strong>{i.title}</strong><span>{i.contactOrganization} · {i.category}</span></div><button onClick={() => handleConvertIntake(i)} disabled={convertIntake.isPending}>{convertIntake.isPending ? "…" : "Convert"}</button></div>)}
+        </div>
         <div className="section-card-head"><div><span className="kicker">APPEND-ONLY EVENT HISTORY</span><h3>Every action leaves a trace.</h3></div><div className="event-actions"><button className="toolbar-filter" onClick={() => setFilter(filter === "All events" ? "Evidence events" : "All events")}><Filter size={15} /> {filter} <ChevronDown size={14} /></button></div></div>
         {eventsLoading && <p>Loading events…</p>}
         {!eventsLoading && filtered.length === 0 && <p>No events recorded yet.</p>}
@@ -181,6 +211,7 @@ function OpsView() {
     </div>
   </>;
 }
+
 
 
 export default function Workspace({ mode }: { mode: WorkspaceMode }) {
