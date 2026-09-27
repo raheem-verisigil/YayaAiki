@@ -143,6 +143,7 @@ function OpsView() {
   const { data: allOrders, isLoading: ordersLoading } = useRealAllWorkOrders();
   const { data: intakes, isLoading: intakesLoading } = useRealPendingIntakes();
   const confirmPayment = trpc.workEngine.payment.confirmReceived.useMutation();
+  const initializePaystack = trpc.workEngine.payment.initializePaystack.useMutation();
   const convertIntake = trpc.intake.convert.useMutation();
   const utils = trpc.useUtils();
 
@@ -165,6 +166,18 @@ function OpsView() {
         utils.workEngine.event.listRecent.invalidate();
       },
       onError: (err) => toast.error(err.message || "Could not confirm payment."),
+    });
+  };
+
+  const handlePaystackPay = (workOrderId: string) => {
+    const email = window.prompt("Payer email for this Paystack checkout:");
+    if (!email) return;
+    initializePaystack.mutate({ workOrderId, payerEmail: email }, {
+      onSuccess: (data) => {
+        window.open(data.authorizationUrl, "_blank");
+        toast.success("Paystack checkout opened in a new tab.");
+      },
+      onError: (err) => toast.error(err.message || "Could not start Paystack payment."),
     });
   };
 
@@ -205,7 +218,7 @@ function OpsView() {
           <div className="section-card-head"><div><span className="kicker">PAYMENT QUEUE</span><h3>Verified work awaiting payment confirmation.</h3></div><Clock3 size={18} /></div>
           {ordersLoading && <p>Loading…</p>}
           {!ordersLoading && pendingPayment.length === 0 && <p>Nothing pending — all verified work is paid.</p>}
-          {!ordersLoading && pendingPayment.map(o => <div className="queue-item" key={o.workOrderId}><span className="queue-priority high">READY</span><div><strong>{((o.specification ?? {}) as { title?: string }).title || o.taskType}</strong><span>{o.currency} {Number(o.priceAmount).toLocaleString()}</span></div><button onClick={() => handleConfirmPayment(o.workOrderId)} disabled={confirmPayment.isPending}>{confirmPayment.isPending ? "…" : <ArrowUpRight size={15} />}</button></div>)}
+          {!ordersLoading && pendingPayment.map(o => <div className="queue-item" key={o.workOrderId}><span className="queue-priority high">READY</span><div><strong>{((o.specification ?? {}) as { title?: string }).title || o.taskType}</strong><span>{o.currency} {Number(o.priceAmount).toLocaleString()}</span></div><button onClick={() => handlePaystackPay(o.workOrderId)} disabled={initializePaystack.isPending} style={{ marginRight: "0.5rem" }}>{initializePaystack.isPending ? "…" : "Paystack"}</button><button onClick={() => handleConfirmPayment(o.workOrderId)} disabled={confirmPayment.isPending}>{confirmPayment.isPending ? "…" : <ArrowUpRight size={15} />}</button></div>)}
         </div>
         <div className="ops-principle"><ShieldCheck size={21} /><div><strong>Verification is independent.</strong><p>Submission and approval are deliberately separated in the control plane.</p></div></div>
       </div>
