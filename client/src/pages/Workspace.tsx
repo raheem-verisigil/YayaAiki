@@ -139,6 +139,7 @@ function ProfessionalView({ selected, setSelected }: { selected: string | null; 
 
 function OpsView() {
   const [filter, setFilter] = useState("All events");
+  const [paystackLink, setPaystackLink] = useState<string | null>(null);
   const { data: events, isLoading: eventsLoading } = useRealEvents(100);
   const { data: allOrders, isLoading: ordersLoading } = useRealAllWorkOrders();
   const { data: intakes, isLoading: intakesLoading } = useRealPendingIntakes();
@@ -174,8 +175,8 @@ function OpsView() {
     if (!email) return;
     initializePaystack.mutate({ workOrderId, payerEmail: email }, {
       onSuccess: (data) => {
-        window.open(data.authorizationUrl, "_blank");
-        toast.success("Paystack checkout opened in a new tab.");
+        setPaystackLink(data.authorizationUrl);
+        toast.success("Checkout link ready below — click it to open Paystack.");
       },
       onError: (err) => toast.error(err.message || "Could not start Paystack payment."),
     });
@@ -198,6 +199,7 @@ function OpsView() {
   };
 
   return <>
+    {paystackLink && <div className="ops-banner" style={{ background: "#0f5132" }}><div><strong>Paystack checkout ready.</strong> <a href={paystackLink} target="_blank" rel="noreferrer" style={{ color: "white", textDecoration: "underline" }}>Click here to open the checkout page</a>. <button onClick={() => setPaystackLink(null)} style={{ marginLeft: "1rem" }}>Dismiss</button></div></div>}
     <div className="ops-banner"><div className="ops-signal"><span /><span /><span /></div><div><span className="kicker">SYSTEM HEALTH</span><h2>The work engine is moving.</h2><p>{openCount} work orders are active. Every consequential action is traceable.</p></div></div>
     <div className="workspace-grid stats-grid"><StatCard label="Open work orders" value={String(openCount).padStart(2, "0")} note="Live count" icon={ClipboardCheck} tone="coral" /><StatCard label="Awaiting verification" value={String(awaitingVerification).padStart(2, "0")} note="Evidence submitted" icon={ShieldCheck} tone="gold" /><StatCard label="Funds reserved" value={`₦${totalReserved.toLocaleString()}`} note="Across open orders" icon={CircleDollarSign} tone="olive" /><StatCard label="System events" value={String(list.length)} note="Append-only · healthy" icon={Activity} tone="blue" /></div>
     <div className="ops-grid">
