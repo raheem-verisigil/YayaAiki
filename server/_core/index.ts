@@ -6,6 +6,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerStorageProxy } from "./storageProxy";
 import { registerOpenApiRoutes } from "./openapi";
 import { appRouter } from "../routers";
+import { handlePaystackWebhook } from "./paystackWebhook";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
@@ -27,6 +28,8 @@ async function findAvailablePort(startPort = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  // Paystack webhook needs the RAW body for signature verification — must be registered before the global JSON parser below.
+  app.post("/api/webhooks/paystack", express.raw({ type: "*/*" }), handlePaystackWebhook);
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);

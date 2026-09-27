@@ -294,6 +294,76 @@ export const workEngineRouter = router({
       return db.select().from(paymentTransaction).where(eq(paymentTransaction.status, "PENDING"));
     }),
 
+    initializePaystack: protectedProcedure
+      .input(z.object({ workOrderId: z.string().uuid(), payerEmail: z.string().email().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+        if (!process.env.PAYSTACK_SECRET_KEY) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Paystack is not configured" });
+
+        const [order] = await db.select().from(workOrder).where(eq(workOrder.workOrderId, input.workOrderId)).limit(1);
+        if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Work order not found" });
+        if (order.status !== "VERIFICATION_PASSED") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Work order must pass verification before payment can be authorized" });
+        }
+
+        const [ev] = await db.select().from(evidence).where(eq(evidence.workOrderId, input.workOrderId)).limit(1);
+        if (!ev) throw new TRPCError({ code: "NOT_FOUND", message: "No evidence found for this work order" });
+
+        const [passedVerification] = await db.select().from(verification)
+          .where(and(eq(verification.evidenceId, ev.evidenceId), eq(verification.decision, "PASS"))).limit(1);
+        if (!passedVerification) throw new TRPCError({ code: "NOT_FOUND", message: "No passing verification found" });
+
+        const staffActor = await ensureActorForUser(db, ctx.user.id, "VERIFIER", ctx.user.name ?? "Staff");
+
+        const [commitment] = await db.insert(paymentCommitment).values({
+          workOrderId: input.workOrderId,
+          amount: order.priceAmount,
+          currency: order.currency,
+          status: "RESERVED",
+        }).returning();
+
+        const [authorization] = await db.insert(paymentAuthorization).values({
+          commitmentId: commitment.commitmentId,
+          verificationId: passedVerification.verificationId,
+          payeeActorId: ev.actorId,
+          amount: order.priceAmount,
+          authorizedBy: staffActor.actorId,
+        }).returning();
+
+        const reference = `YY-${order.workOrderId.slice(0, 8)}-${Date.now()}`;
+        const email = input.payerEmail ?? ctx.user.email ?? "ops@yayaaiki.com";
+
+        const paystackRes = await fetch("https://api.paystack.co/transaction/initialize", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            amount: Math.round(Number(order.priceAmount) * 100),
+            currency: order.currency,
+            reference,
+          }),
+        });
+        const paystackData = await paystackRes.json() as { status: boolean; message: string; data?: { authorization_url: string; reference: string } };
+        if (!paystackData.status || !paystackData.data) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Paystack error: ${paystackData.message}` });
+        }
+
+        await db.insert(paymentTransaction).values({
+          authorizationId: authorization.authorizationId,
+          providerName: "PAYSTACK",
+          providerReference: reference,
+          amount: order.priceAmount,
+          status: "PENDING",
+        });
+
+        return { authorizationUrl: paystackData.data.authorization_url, reference };
+      }),
+
+
     confirmReceived: protectedProcedure
       .input(z.object({ workOrderId: z.string().uuid() }))
       .mutation(async ({ ctx, input }) => {
