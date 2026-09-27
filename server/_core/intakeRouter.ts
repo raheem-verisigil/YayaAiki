@@ -2,6 +2,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { publicProcedure, protectedProcedure, router } from "./trpc";
 import { getDb } from "../db";
+import { appendEvent } from "./workEngineRouter";
 import { intake, workOrder, actor, tenant } from "../../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 
@@ -114,6 +115,14 @@ export const intakeRouter = router({
 
       await db.update(intake).set({ status: "CONVERTED", convertedWorkOrderId: order.workOrderId })
         .where(eq(intake.intakeId, input.intakeId));
+
+      await appendEvent(db, {
+        eventType: "ORDER_CREATED_FROM_INTAKE",
+        aggregateType: "WorkOrder",
+        aggregateId: order.workOrderId,
+        tenantId: order.tenantId,
+        payload: { intakeId: row.intakeId, publicId: row.publicId, taskType: order.taskType, priceAmount: order.priceAmount },
+      });
 
       return order;
     }),
