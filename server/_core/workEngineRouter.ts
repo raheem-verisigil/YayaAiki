@@ -1,6 +1,6 @@
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
-import { eq, and, count, inArray } from "drizzle-orm";
+import { eq, and, count, inArray, desc } from "drizzle-orm";
 import { protectedProcedure, router } from "./trpc";
 import { getDb } from "../db";
 import {
@@ -161,7 +161,50 @@ export const workEngineRouter = router({
       .query(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-        return db.select().from(event).orderBy(event.occurredAt).limit(input.limit);
+        return db.select().from(event).orderBy(desc(event.occurredAt)).limit(input.limit);
+      }),
+  }),
+
+  assignment: router({
+    listWorkers: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      return db.select().from(actor).where(and(eq(actor.actorType, "WORKER"), eq(actor.status, "ACTIVE")));
+    }),
+
+    assign: protectedProcedure
+      .input(z.object({ workOrderId: z.string().uuid(), actorId: z.string().uuid() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+        const [order] = await db.select().from(workOrder).where(eq(workOrder.workOrderId, input.workOrderId)).limit(1);
+        if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Work order not found" });
+        if (order.status !== "CREATED") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Only newly created work orders can be assigned" });
+        }
+
+        const [worker] = await db.select().from(actor)
+          .where(and(eq(actor.actorId, input.actorId), eq(actor.actorType, "WORKER"))).limit(1);
+        if (!worker) throw new TRPCError({ code: "NOT_FOUND", message: "Worker not found" });
+
+        const [assignment] = await db.insert(workOrderAssignment).values({
+          workOrderId: input.workOrderId,
+          actorId: input.actorId,
+          roleOnOrder: "WORKER",
+        }).returning();
+
+        await db.update(workOrder).set({ status: "ACTOR_ASSIGNED" }).where(eq(workOrder.workOrderId, input.workOrderId));
+
+        await appendEvent(db, {
+          eventType: "ACTOR_ASSIGNED",
+          aggregateType: "WorkOrder",
+          aggregateId: input.workOrderId,
+          tenantId: order.tenantId,
+          payload: { assignmentId: assignment.assignmentId, workerActorId: input.actorId, roleOnOrder: "WORKER" },
+        });
+
+        return assignment;
       }),
   }),
 

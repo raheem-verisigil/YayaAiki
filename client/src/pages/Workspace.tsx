@@ -36,6 +36,7 @@ type RouterOutputs = inferRouterOutputs<AppRouter>;
 type WorkOrderRow = RouterOutputs["workEngine"]["workOrder"]["listForActor"][number];
 type EventRow = RouterOutputs["workEngine"]["event"]["listRecent"][number];
 type IntakeRow = RouterOutputs["intake"]["list"][number];
+type WorkerRow = RouterOutputs["workEngine"]["assignment"]["listWorkers"][number];
 
 const whatsapp = "https://wa.me/2348112051880?text=Hello%20YayaAiki%2C%20I%27d%20like%20help%20with%20my%20workspace.";
 
@@ -53,6 +54,9 @@ function useRealEvents(limit = 50) {
 }
 function useRealPendingIntakes() {
   return trpc.intake.list.useQuery();
+}
+function useRealWorkers() {
+  return trpc.workEngine.assignment.listWorkers.useQuery();
 }
 
 function Brand() { return <Link href="/" className="brand-lockup workspace-brand"><img className="brand-full-logo" src="/yayaaiki-logo.png" alt="YayaAiki — Work, Verified, Valued" /></Link>; }
@@ -140,9 +144,12 @@ function ProfessionalView({ selected, setSelected }: { selected: string | null; 
 function OpsView() {
   const [filter, setFilter] = useState("All events");
   const [paystackLink, setPaystackLink] = useState<string | null>(null);
+  const [selectedWorker, setSelectedWorker] = useState<Record<string, string>>({});
   const { data: events, isLoading: eventsLoading } = useRealEvents(100);
   const { data: allOrders, isLoading: ordersLoading } = useRealAllWorkOrders();
   const { data: intakes, isLoading: intakesLoading } = useRealPendingIntakes();
+  const { data: workers } = useRealWorkers();
+  const assignWorker = trpc.workEngine.assignment.assign.useMutation();
   const confirmPayment = trpc.workEngine.payment.confirmReceived.useMutation();
   const initializePaystack = trpc.workEngine.payment.initializePaystack.useMutation();
   const convertIntake = trpc.intake.convert.useMutation();
@@ -158,6 +165,20 @@ function OpsView() {
   const totalReserved = orders.reduce((sum, o) => sum + (o.status !== "CLOSED" && o.status !== "CANCELLED" ? Number(o.priceAmount) : 0), 0);
 
   const pendingIntakes = (intakes ?? []).filter((i: IntakeRow) => i.status === "RECEIVED" || i.status === "IN_REVIEW");
+  const createdOrders = orders.filter(o => o.status === "CREATED");
+
+  const handleAssign = (workOrderId: string) => {
+    const actorId = selectedWorker[workOrderId];
+    if (!actorId) { toast.error("Pick a worker first."); return; }
+    assignWorker.mutate({ workOrderId, actorId }, {
+      onSuccess: () => {
+        toast.success("Worker assigned.");
+        utils.workEngine.workOrder.listAll.invalidate();
+        utils.workEngine.event.listRecent.invalidate();
+      },
+      onError: (err) => toast.error(err.message || "Could not assign worker."),
+    });
+  };
 
   const handleConfirmPayment = (workOrderId: string) => {
     confirmPayment.mutate({ workOrderId }, {
@@ -209,6 +230,19 @@ function OpsView() {
           {intakesLoading && <p>Loading…</p>}
           {!intakesLoading && pendingIntakes.length === 0 && <p>No pending intakes — the queue is clear.</p>}
           {!intakesLoading && pendingIntakes.map((i: IntakeRow) => <div className="queue-item" key={i.intakeId}><span className="queue-priority high">{i.publicId}</span><div><strong>{i.title}</strong><span>{i.contactOrganization} · {i.category}</span></div><button onClick={() => handleConvertIntake(i)} disabled={convertIntake.isPending}>{convertIntake.isPending ? "…" : "Convert"}</button></div>)}
+        </div>
+        <div className="queue-card" id="assignments" style={{ marginBottom: "1.5rem" }}>
+          <div className="section-card-head"><div><span className="kicker">ASSIGNMENT QUEUE</span><h3>New work orders awaiting a worker.</h3></div><Clock3 size={18} /></div>
+          {createdOrders.length === 0 && <p>Nothing waiting on assignment.</p>}
+          {createdOrders.map(o => <div className="queue-item" key={o.workOrderId}>
+            <span className="queue-priority high">NEW</span>
+            <div><strong>{((o.specification ?? {}) as { title?: string }).title || o.taskType}</strong><span>{o.currency} {Number(o.priceAmount).toLocaleString()}</span></div>
+            <select value={selectedWorker[o.workOrderId] ?? ""} onChange={e => setSelectedWorker(s => ({ ...s, [o.workOrderId]: e.target.value }))} style={{ marginRight: "0.5rem" }}>
+              <option value="">Pick worker…</option>
+              {(workers ?? []).map((w: WorkerRow) => <option key={w.actorId} value={w.actorId}>{w.displayName}</option>)}
+            </select>
+            <button onClick={() => handleAssign(o.workOrderId)} disabled={assignWorker.isPending}>{assignWorker.isPending ? "…" : "Assign"}</button>
+          </div>)}
         </div>
         <div className="section-card-head"><div><span className="kicker">APPEND-ONLY EVENT HISTORY</span><h3>Every action leaves a trace.</h3></div><div className="event-actions"><button className="toolbar-filter" onClick={() => setFilter(filter === "All events" ? "Evidence events" : "All events")}><Filter size={15} /> {filter} <ChevronDown size={14} /></button></div></div>
         {eventsLoading && <p>Loading events…</p>}
