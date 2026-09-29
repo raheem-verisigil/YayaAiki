@@ -260,6 +260,59 @@ export const workEngineRouter = router({
 
         return ev;
       }),
+
+    submitOnBehalf: protectedProcedure
+      .input(z.object({ workOrderId: z.string().uuid(), deliverableUrl: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+        const [order] = await db.select().from(workOrder).where(eq(workOrder.workOrderId, input.workOrderId)).limit(1);
+        if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Work order not found" });
+        if (order.status !== "ACTOR_ASSIGNED" && order.status !== "WORK_STARTED") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Work order must have an assigned worker before evidence can be submitted" });
+        }
+
+        const [assignment] = await db.select().from(workOrderAssignment)
+          .where(eq(workOrderAssignment.workOrderId, input.workOrderId)).limit(1);
+        if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No worker is assigned to this work order yet" });
+
+        const artifactHash = createHash("sha256").update(input.deliverableUrl).digest("hex");
+
+        const dup = await db.select().from(evidence)
+          .where(and(eq(evidence.workOrderId, input.workOrderId), eq(evidence.artifactHash, artifactHash))).limit(1);
+        if (dup.length) throw new TRPCError({ code: "CONFLICT", message: "This exact evidence was already submitted for this work order" });
+
+        const [ev] = await db.insert(evidence).values({
+          workOrderId: input.workOrderId,
+          actorId: assignment.actorId,
+          artifactType: "FILE",
+          artifactLocation: input.deliverableUrl,
+          artifactHash,
+          source: "AGENT_CAPTURED",
+        }).returning();
+
+        await db.update(workOrder).set({ status: "EVIDENCE_SUBMITTED" }).where(eq(workOrder.workOrderId, input.workOrderId));
+
+        await appendEvent(db, {
+          eventType: "EVIDENCE_SUBMITTED",
+          aggregateType: "WorkOrder",
+          aggregateId: input.workOrderId,
+          actorId: assignment.actorId,
+          tenantId: order.tenantId,
+          payload: { evidenceId: ev.evidenceId, artifactHash, submittedOnBehalf: true },
+        });
+
+        return ev;
+      }),
+
+    listForWorkOrder: protectedProcedure
+      .input(z.object({ workOrderId: z.string().uuid() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+        return db.select().from(evidence).where(eq(evidence.workOrderId, input.workOrderId));
+      }),
   }),
 
   verification: router({

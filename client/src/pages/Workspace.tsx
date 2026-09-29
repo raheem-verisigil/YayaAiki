@@ -37,6 +37,7 @@ type WorkOrderRow = RouterOutputs["workEngine"]["workOrder"]["listForActor"][num
 type EventRow = RouterOutputs["workEngine"]["event"]["listRecent"][number];
 type IntakeRow = RouterOutputs["intake"]["list"][number];
 type WorkerRow = RouterOutputs["workEngine"]["assignment"]["listWorkers"][number];
+type EvidenceRow = RouterOutputs["workEngine"]["evidence"]["listForWorkOrder"][number];
 
 const whatsapp = "https://wa.me/2348112051880?text=Hello%20YayaAiki%2C%20I%27d%20like%20help%20with%20my%20workspace.";
 
@@ -73,6 +74,30 @@ function WorkspaceHeader({ mode, onMenu }: { mode: WorkspaceMode; onMenu: () => 
 }
 
 function StatCard({ label, value, note, icon: Icon, tone }: { label: string; value: string; note: string; icon: LucideIcon; tone: string }) { return <div className={`stat-card ${tone}`}><div className="stat-card-top"><span>{label}</span><Icon size={19} /></div><strong>{value}</strong><span className="stat-note">{note}</span></div>; }
+
+function VerificationItem({ order, onDecided }: { order: WorkOrderRow; onDecided: () => void }) {
+  const { data: evidenceList, isLoading } = trpc.workEngine.evidence.listForWorkOrder.useQuery({ workOrderId: order.workOrderId });
+  const decide = trpc.workEngine.verification.decide.useMutation();
+  const latest = evidenceList && evidenceList.length ? evidenceList[evidenceList.length - 1] : null;
+
+  const handleDecide = (decision: "PASS" | "FAIL" | "REWORK_REQUESTED") => {
+    if (!latest) return;
+    decide.mutate({ evidenceId: latest.evidenceId, decision }, {
+      onSuccess: () => { toast.success("Verification recorded: " + decision + "."); onDecided(); },
+      onError: (err) => toast.error(err.message || "Could not record verification."),
+    });
+  };
+
+  if (isLoading) return <div className="queue-item"><span>Loading evidence…</span></div>;
+  if (!latest) return <div className="queue-item"><span>No evidence found for this order.</span></div>;
+
+  return <div className="queue-item">
+    <span className="queue-priority high">REVIEW</span>
+    <div><strong>{((order.specification ?? {}) as { title?: string }).title || order.taskType}</strong><span><a href={latest.artifactLocation} target="_blank" rel="noreferrer">View submitted work</a></span></div>
+    <button onClick={() => handleDecide("PASS")} disabled={decide.isPending} style={{ marginRight: "0.5rem" }}>Pass</button>
+    <button onClick={() => handleDecide("FAIL")} disabled={decide.isPending}>Fail</button>
+  </div>;
+}
 
 function fmtAmount(order: WorkOrderRow) {
   const amount = Number(order.priceAmount);
@@ -145,11 +170,13 @@ function OpsView() {
   const [filter, setFilter] = useState("All events");
   const [paystackLink, setPaystackLink] = useState<string | null>(null);
   const [selectedWorker, setSelectedWorker] = useState<Record<string, string>>({});
+  const [deliverableUrl, setDeliverableUrl] = useState<Record<string, string>>({});
   const { data: events, isLoading: eventsLoading } = useRealEvents(100);
   const { data: allOrders, isLoading: ordersLoading } = useRealAllWorkOrders();
   const { data: intakes, isLoading: intakesLoading } = useRealPendingIntakes();
   const { data: workers } = useRealWorkers();
   const assignWorker = trpc.workEngine.assignment.assign.useMutation();
+  const submitEvidence = trpc.workEngine.evidence.submitOnBehalf.useMutation();
   const confirmPayment = trpc.workEngine.payment.confirmReceived.useMutation();
   const initializePaystack = trpc.workEngine.payment.initializePaystack.useMutation();
   const convertIntake = trpc.intake.convert.useMutation();
@@ -166,6 +193,8 @@ function OpsView() {
 
   const pendingIntakes = (intakes ?? []).filter((i: IntakeRow) => i.status === "RECEIVED" || i.status === "IN_REVIEW");
   const createdOrders = orders.filter(o => o.status === "CREATED");
+  const inProgressOrders = orders.filter(o => o.status === "ACTOR_ASSIGNED" || o.status === "WORK_STARTED");
+  const awaitingVerificationOrders = orders.filter(o => o.status === "EVIDENCE_SUBMITTED");
 
   const handleAssign = (workOrderId: string) => {
     const actorId = selectedWorker[workOrderId];
@@ -177,6 +206,19 @@ function OpsView() {
         utils.workEngine.event.listRecent.invalidate();
       },
       onError: (err) => toast.error(err.message || "Could not assign worker."),
+    });
+  };
+
+  const handleSubmitEvidence = (workOrderId: string) => {
+    const url = deliverableUrl[workOrderId];
+    if (!url) { toast.error("Enter a deliverable link first."); return; }
+    submitEvidence.mutate({ workOrderId, deliverableUrl: url }, {
+      onSuccess: () => {
+        toast.success("Evidence submitted for verification.");
+        utils.workEngine.workOrder.listAll.invalidate();
+        utils.workEngine.event.listRecent.invalidate();
+      },
+      onError: (err) => toast.error(err.message || "Could not submit evidence."),
     });
   };
 
@@ -243,6 +285,21 @@ function OpsView() {
             </select>
             <button onClick={() => handleAssign(o.workOrderId)} disabled={assignWorker.isPending}>{assignWorker.isPending ? "…" : "Assign"}</button>
           </div>)}
+        </div>
+        <div className="queue-card" id="evidence" style={{ marginBottom: "1.5rem" }}>
+          <div className="section-card-head"><div><span className="kicker">WORK IN PROGRESS</span><h3>Assigned orders — submit a deliverable link.</h3></div><Clock3 size={18} /></div>
+          {inProgressOrders.length === 0 && <p>Nothing in progress.</p>}
+          {inProgressOrders.map(o => <div className="queue-item" key={o.workOrderId}>
+            <span className="queue-priority high">WIP</span>
+            <div><strong>{((o.specification ?? {}) as { title?: string }).title || o.taskType}</strong></div>
+            <input type="text" placeholder="Deliverable URL" value={deliverableUrl[o.workOrderId] ?? ""} onChange={e => setDeliverableUrl(s => ({ ...s, [o.workOrderId]: e.target.value }))} style={{ marginRight: "0.5rem" }} />
+            <button onClick={() => handleSubmitEvidence(o.workOrderId)} disabled={submitEvidence.isPending}>{submitEvidence.isPending ? "…" : "Submit"}</button>
+          </div>)}
+        </div>
+        <div className="queue-card" style={{ marginBottom: "1.5rem" }}>
+          <div className="section-card-head"><div><span className="kicker">AWAITING VERIFICATION</span><h3>Review submitted work.</h3></div><Clock3 size={18} /></div>
+          {awaitingVerificationOrders.length === 0 && <p>Nothing awaiting verification.</p>}
+          {awaitingVerificationOrders.map(o => <VerificationItem key={o.workOrderId} order={o} onDecided={() => { utils.workEngine.workOrder.listAll.invalidate(); utils.workEngine.event.listRecent.invalidate(); }} />)}
         </div>
         <div className="section-card-head"><div><span className="kicker">APPEND-ONLY EVENT HISTORY</span><h3>Every action leaves a trace.</h3></div><div className="event-actions"><button className="toolbar-filter" onClick={() => setFilter(filter === "All events" ? "Evidence events" : "All events")}><Filter size={15} /> {filter} <ChevronDown size={14} /></button></div></div>
         {eventsLoading && <p>Loading events…</p>}
