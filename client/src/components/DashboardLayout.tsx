@@ -19,10 +19,10 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { startLogin } from "@/const";
+import { signInWithPassword, signUpWithPassword, startLogin } from "@/lib/supabase";
 import { useIsMobile } from "@/hooks/useMobile";
 import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
@@ -47,6 +47,11 @@ export default function DashboardLayout({
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -57,24 +62,51 @@ export default function DashboardLayout({
   }
 
   if (!user) {
+    const submitPasswordAuth = async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setAuthError(null);
+      setAuthMessage(null);
+      try {
+        if (authMode === "signin") {
+          await signInWithPassword(email, password);
+        } else {
+          const result = await signUpWithPassword(email, password);
+          setAuthMessage(result.session ? "Account created. You are now signed in." : "Account created. Check your email to confirm it, then sign in.");
+        }
+      } catch (error) {
+        setAuthError(error instanceof Error ? error.message : "Authentication failed");
+      }
+    };
+
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
+        <div className="flex flex-col items-center gap-6 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-6">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
               Sign in to continue
             </h1>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
+              Sign in securely with Google or use an email and password.
             </p>
           </div>
           <Button
-            onClick={() => startLogin()}
+            onClick={() => void startLogin()}
             size="lg"
             className="w-full shadow-lg hover:shadow-xl transition-all"
           >
-            Sign in
+            Continue with Google
           </Button>
+          <div className="w-full flex items-center gap-3 text-xs text-muted-foreground"><span className="h-px bg-border flex-1" /><span>OR</span><span className="h-px bg-border flex-1" /></div>
+          <form onSubmit={submitPasswordAuth} className="w-full flex flex-col gap-3">
+            <input aria-label="Email" type="email" required value={email} onChange={event => setEmail(event.target.value)} placeholder="Email address" className="h-11 rounded-md border bg-background px-3 text-sm" />
+            <input aria-label="Password" type="password" required minLength={6} value={password} onChange={event => setPassword(event.target.value)} placeholder="Password (minimum 6 characters)" className="h-11 rounded-md border bg-background px-3 text-sm" />
+            {authError && <p className="text-sm text-destructive" role="alert">{authError}</p>}
+            {authMessage && <p className="text-sm text-emerald-600" role="status">{authMessage}</p>}
+            <Button type="submit" variant="outline" size="lg">{authMode === "signin" ? "Sign in with email" : "Create email account"}</Button>
+          </form>
+          <button type="button" className="text-sm text-muted-foreground underline underline-offset-4" onClick={() => { setAuthMode(authMode === "signin" ? "signup" : "signin"); setAuthError(null); setAuthMessage(null); }}>
+            {authMode === "signin" ? "Create a new account" : "Already have an account? Sign in"}
+          </button>
         </div>
       </div>
     );

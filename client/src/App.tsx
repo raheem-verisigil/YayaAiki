@@ -5,12 +5,22 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import IntakeStatus from "./pages/IntakeStatus";
+import StartWork from "./pages/StartWork";
+import JoinAsWorker from "./pages/JoinAsWorker";
 import Workspace from "./pages/Workspace";
+import Login from "./pages/Login";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/start-work" component={StartWork} />
+      <Route path="/start" component={StartWork} />
+      <Route path="/join" component={JoinAsWorker} />
+      <Route path="/join-as-worker" component={JoinAsWorker} />
+      <Route path="/intake/:publicId" component={IntakeStatus} />
+      <Route path="/login" component={Login} />
       <Route path="/for-business">
         <Workspace mode="business" />
       </Route>
